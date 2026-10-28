@@ -2,6 +2,7 @@
 
 import { Lexer, type Token, type Tokens } from 'marked';
 import stringWidth from 'string-width';
+import { fg, theme } from './theme.js';
 import { c } from './ui.js';
 
 export function renderMarkdown(src: string, width = 80): string {
@@ -33,7 +34,7 @@ function block(t: Token, width: number, depth: number): string | null {
     case 'heading': {
       const h = t as Tokens.Heading;
       const text = inline(h.tokens);
-      return (h.depth === 1 ? c.bold(c.underline(text)) : c.bold(text)) + '\n';
+      return (h.depth <= 2 ? c.bold(c.brand(text)) : c.bold(text)) + '\n';
     }
     case 'paragraph':
       return inline((t as Tokens.Paragraph).tokens) + '\n';
@@ -44,20 +45,21 @@ function block(t: Token, width: number, depth: number): string | null {
     case 'code': {
       const code = t as Tokens.Code;
       const lang = (code.lang ?? '').trim().split(/\s+/)[0] ?? '';
+      const bar = fg(theme.subtle)('│ ');
       const body = code.text
         .split('\n')
-        .map((l) => '  ' + highlight(l, lang))
+        .map((l) => bar + highlight(l, lang))
         .join('\n');
-      return (lang ? c.dim(`  ${lang}`) + '\n' : '') + body + '\n';
+      return (lang ? fg(theme.subtle)('╭ ') + c.dim(lang) + '\n' : '') + body + '\n';
     }
     case 'blockquote': {
       const inner = blocks((t as Tokens.Blockquote).tokens, width - 2, depth).trimEnd();
-      return inner.split('\n').map((l) => c.gray('▎ ') + c.italic(l)).join('\n') + '\n';
+      return inner.split('\n').map((l) => fg(theme.brandDeep)('▎ ') + c.italic(l)).join('\n') + '\n';
     }
     case 'list':
       return list(t as Tokens.List, width, depth) + (depth === 0 ? '\n' : '');
     case 'hr':
-      return c.dim('─'.repeat(Math.min(width, 60))) + '\n';
+      return fg(theme.subtle)('─'.repeat(Math.min(width, 60))) + '\n';
     case 'table':
       return table(t as Tokens.Table) + '\n';
     case 'html':
@@ -160,6 +162,13 @@ const KEYWORDS = new Set(
 const HASH_COMMENT = new Set(['python', 'py', 'sh', 'bash', 'zsh', 'shell', 'yaml', 'yml', 'toml', 'ruby', 'rb', 'powershell', 'ps1', 'pwsh', 'dockerfile', 'makefile', 'r', 'perl']);
 const PLAIN = new Set(['', 'text', 'txt', 'plain', 'output', 'console', 'log', 'markdown', 'md']);
 
+const HL = {
+  keyword: fg(theme.code.keyword),
+  string: fg(theme.code.string),
+  number: fg(theme.code.number),
+  comment: fg(theme.code.comment),
+};
+
 function highlight(line: string, lang: string): string {
   const l = lang.toLowerCase();
   if (l === 'diff' || l === 'patch') {
@@ -175,10 +184,10 @@ function highlight(line: string, lang: string): string {
     'g',
   );
   return line.replace(re, (m, cm, str, num, word) => {
-    if (cm) return c.gray(m);
-    if (str) return c.green(m);
-    if (num) return c.yellow(m);
-    if (word && KEYWORDS.has(word)) return c.magenta(m);
+    if (cm) return HL.comment(m);
+    if (str) return HL.string(m);
+    if (num) return HL.number(m);
+    if (word && KEYWORDS.has(word)) return HL.keyword(m);
     return m;
   });
 }

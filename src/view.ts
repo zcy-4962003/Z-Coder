@@ -58,7 +58,7 @@ export class ConsoleView implements AgentView {
   textDelta(text: string): void {
     if (!this.streaming) {
       this.spinner.stop();
-      process.stdout.write('\n' + c.bold('● '));
+      process.stdout.write('\n' + c.brand('● '));
       this.streaming = true;
     }
     process.stdout.write(text);

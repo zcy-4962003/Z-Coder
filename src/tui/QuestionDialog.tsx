@@ -1,5 +1,6 @@
 import { useReducer, useRef } from 'react';
 import { Box, Text } from 'ink';
+import { theme } from '../theme.js';
 import { useKeys } from './input.js';
 import type { PendingQuestion } from './store.js';
 
@@ -60,25 +61,25 @@ export function QuestionDialog({ pending, onInterrupt }: { pending: PendingQuest
   });
 
   return (
-    <Box flexDirection="column" borderStyle="round" borderColor="cyan" paddingX={1} marginTop={1}>
-      <Text bold color="cyan">
+    <Box flexDirection="column" borderStyle="round" borderColor={theme.brandDeep} paddingX={1} marginTop={1}>
+      <Text bold color={theme.brand}>
         ? {question.question}
       </Text>
       <Text> </Text>
       {opts.map((o, i) => (
-        <Text key={i} {...(i === st.sel ? { color: 'cyan' } : {})}>
+        <Text key={i} {...(i === st.sel ? { color: theme.brand } : {})}>
           {i === st.sel ? '❯ ' : '  '}
           {question.multiSelect ? (st.checked.has(i) ? '[x] ' : '[ ] ') : `${i + 1}. `}
           {o}
         </Text>
       ))}
-      <Text {...(st.sel === customIndex ? { color: 'cyan' } : {})}>
+      <Text {...(st.sel === customIndex ? { color: theme.brand } : {})}>
         {st.sel === customIndex ? '❯ ' : '  '}
         {opts.length ? `${question.multiSelect ? '    ' : `${opts.length + 1}. `}` : ''}
-        {st.custom ? <Text>{st.custom}</Text> : <Text dimColor>{opts.length ? 'Other (type your answer)' : 'Type your answer'}</Text>}
+        {st.custom ? <Text>{st.custom}</Text> : <Text color={theme.muted}>{opts.length ? 'Other (type your answer)' : 'Type your answer'}</Text>}
         {st.sel === customIndex ? <Text inverse> </Text> : null}
       </Text>
-      <Text dimColor>
+      <Text color={theme.muted}>
         {question.multiSelect ? 'space to toggle · ' : ''}enter to submit · esc to dismiss
       </Text>
     </Box>

@@ -1,6 +1,7 @@
 import { useReducer, useRef } from 'react';
 import { Box, Text } from 'ink';
 import type { CommandInfo } from '../commands.js';
+import { theme } from '../theme.js';
 import { useKeys } from './input.js';
 
 interface Props {
@@ -228,15 +229,17 @@ export function PromptInput(props: Props) {
 
   return (
     <Box flexDirection="column">
-      <Box borderStyle="round" borderColor={props.busy ? 'gray' : 'white'} borderDimColor paddingX={1}>
+      <Box borderStyle="round" borderColor={theme.subtle} paddingX={1}>
         <Box width={2} flexShrink={0}>
-          <Text bold>{'>'}</Text>
+          <Text bold color={props.busy ? theme.muted : theme.brand}>
+            {'>'}
+          </Text>
         </Box>
         <Box flexDirection="column" flexGrow={1}>
           {s.value === '' ? (
             <Text>
               <Text inverse>{PLACEHOLDER[0]}</Text>
-              <Text dimColor>{PLACEHOLDER.slice(1)}</Text>
+              <Text color={theme.muted}>{PLACEHOLDER.slice(1)}</Text>
             </Text>
           ) : (
             lines.map((l, i) => {
@@ -261,17 +264,17 @@ export function PromptInput(props: Props) {
             return (
             <Box key={item.label}>
               <Box width={labelWidth} flexShrink={0}>
-                <Text {...(i === s.sel ? { color: 'cyan' } : { dimColor: true })}>
+                <Text color={i === s.sel ? theme.brand : theme.muted}>
                   {item.label}
                 </Text>
               </Box>
-              <Text {...(i === s.sel ? { color: 'cyan' } : { dimColor: true })} wrap="truncate-end">
+              <Text color={i === s.sel ? theme.brandLight : theme.muted} wrap="truncate-end">
                 {item.hint}
               </Text>
             </Box>
             );
           })}
-          {menu.length > MAX_MENU && <Text dimColor>  ({s.sel + 1}/{menu.length})</Text>}
+          {menu.length > MAX_MENU && <Text color={theme.muted}>  ({s.sel + 1}/{menu.length})</Text>}
         </Box>
       )}
     </Box>
