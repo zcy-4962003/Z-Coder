@@ -69,6 +69,7 @@ Agent 的工作目录就是启动时所在的目录。执行 `npm link` 后即�
 | `CODER_MAX_TOKENS` | 单次回复最大 token 数，默认 8192 |
 | `CODER_CONTEXT_LIMIT` | 上下文窗口大小（Anthropic 默认 200k，其它默认 128k） |
 | `CODER_TOOL_RESULT_LIMIT` | 工具结果超过该字符数时落盘，默认 20000 |
+| `CODER_SESSION_TTL_DAYS` | 会话保留天数，默认 30；设为 `0` 关闭自动清理 |
 | `CODER_WEB_SEARCH` | 搜索提供方：`auto` / `tavily` / `brave` / `bing` |
 | `TAVILY_API_KEY` / `BRAVE_API_KEY` | 搜索 API 密钥；`auto` 模式下有哪个用哪个，都没有时退回解析 Bing 网页 |
 | `CODER_SHELL` | Bash 工具使用的 shell（Windows 默认 PowerShell，其它平台默认 bash） |
@@ -90,7 +91,7 @@ Agent 的工作目录就是启动时所在的目录。执行 `npm link` 后即�
 | 结果落盘 | 超过 `toolResultLimit` 的工具结果完整保存到 `~/.coder/tool-results/`，上下文中只保留头尾预览和文件路径（保留 7 天） |
 | Skills | 从 `~/.coder/skills/`、`~/.claude/skills/`、`<项目>/.coder/skills/`、`<项目>/.claude/skills/` 下发现 `<name>/SKILL.md`；系统提示词只列名称和描述，需要时通过 `Skill` 工具加载全文 |
 | MCP | 支持 stdio 和远程 Streamable HTTP（JSON / SSE 响应）；接入 tools（`mcp__<server>__<tool>`）、resources（`ListMcpResources` / `ReadMcpResource`）和 prompts（作为 `/mcp__<server>__<prompt>` 斜杠命令）；配置来自 `config.json` 的 `mcpServers` 和项目根目录的 `.mcp.json`，支持 `${环境变量}` |
-| 会话 | 按项目隔离保存到 `~/.coder/sessions/`；支持列出、恢复、重命名、分叉 |
+| 会话 | 按项目隔离保存到 `~/.coder/sessions/<项目名-hash>/<id>.jsonl`，只追加的 JSONL 事件流（每个事件带 `sessionId` / `ts` / `cwd` / `uuid` / `parentUuid`）；支持列出、恢复、重命名、分叉（保留父链）与过期清理 |
 | 项目记忆 | 自动加载 `~/.coder/CODER.md`，以及项目根目录下的 `CODER.md` / `AGENTS.md` / `CLAUDE.md`（存在的全部加载）；`/init` 自动生成 |
 | 中断 | `Esc` 或 `Ctrl+C` 中断当前任务（同时终止正在运行的子进程）；连按两次 `Ctrl+C` 退出 |
 
@@ -127,7 +128,7 @@ Agent 的工作目录就是启动时所在的目录。执行 `npm link` 后即�
 | `/agents [close <id\|all>]` | 查看或关闭子 Agent |
 | `/goal [<目标>\|pause\|resume\|check\|clear]` | 设置 / 查看 / 暂停 / 恢复 / 检查 / 清除 Goal |
 | `/loop [<间隔> <提示词>\|stop]` | 启动 / 查看 / 停止 Loop，间隔如 `30s`、`5m`、`1h`（最小 10 秒） |
-| `/sessions` | 列出当前项目的会话 |
+| `/sessions [delete <序号\|ID\|名称>\|cleanup]` | 列出当前项目的会话；删除指定会话（不能删除当前会话）；清理过期会话 |
 | `/resume <序号\|ID\|名称>` | 恢复会话 |
 | `/rename <名称>` | 重命名当前会话 |
 | `/fork [名称]` | 把当前对话复制为新会话并切换过去（原会话不变） |
@@ -138,6 +139,19 @@ Agent 的工作目录就是启动时所在的目录。执行 `npm link` 后即�
 | `/exit` | 退出 |
 
 输入以 `\` 结尾（或 `Alt+Enter`）可以换行继续输入；输入 `@` 可补全文件路径。
+
+## 会话存储
+
+会话按工作目录隔离保存在 `~/.coder/sessions/<项目名>-<hash>/<sessionId>.jsonl`，采用只追加的 JSONL 事件流，恢复时按顺序重放：
+
+| 事件 | 说明 |
+| --- | --- |
+| `session_start` | 会话创建；分叉时记录 `forkedFrom.sessionId` 与分叉点 `messageUuid` |
+| `message` | 一条消息；`parentUuid` 指向上一条消息，形成完整父链 |
+| `rename` | 重命名会话 |
+| `reset` | 压缩或裁剪导致历史变化时写入的全量快照 |
+
+每个事件都带有 `sessionId`、`ts`、`cwd`、`uuid`、`parentUuid`。超过 `CODER_SESSION_TTL_DAYS`（默认 30 天）未更新的会话会在启动时自动清理，也可以用 `/sessions cleanup` 手动清理；`/sessions delete <ref>` 删除指定会话。
 
 ## 目录结构
 
@@ -157,7 +171,7 @@ src/
 ├── config.ts         配置加载
 ├── permissions.ts    权限模式、路径边界、敏感文件、危险命令规则
 ├── prompt.ts         系统提示词（root / worker）、项目记忆、/init 和 /compact 的提示词
-├── session.ts        会话持久化：列出、恢复、重命名、分叉
+├── session.ts        会话持久化：追加式 JSONL 事件、重放、恢复、重命名、分叉、清理
 ├── markdown.ts       Markdown → 终端彩色文本
 ├── view.ts           Agent 与界面之间的接口；单次运行模式的控制台输出
 ├── ui.ts             颜色、diff、输出预览

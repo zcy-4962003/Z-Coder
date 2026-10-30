@@ -262,8 +262,23 @@ const commands: Command[] = [
   },
   {
     name: 'sessions',
-    description: 'List saved sessions for this project',
-    run(_arg, { runtime, session, print }) {
+    args: '[delete <number|id|name>|cleanup]',
+    description: 'List saved sessions, delete one, or clean up expired sessions',
+    run(arg, { runtime, session, print }) {
+      const sub = arg.trim();
+      if (sub === 'cleanup') {
+        const n = Session.cleanup();
+        return print(n ? `Removed ${n} expired session${n === 1 ? '' : 's'}.` : 'No expired sessions to remove.', 'dim');
+      }
+      const del = /^delete\s+(\S.*)$/.exec(sub);
+      if (del) {
+        const ref = del[1]!.trim();
+        const target = Session.find(runtime.cwd, ref);
+        if (!target) return print(`Session "${ref}" not found. See /sessions.`, 'error');
+        if (target.id === session.id) return print('Cannot delete the active session. Start a new one with /clear first.', 'error');
+        if (!Session.remove(runtime.cwd, target.id)) return print(`Failed to delete session "${ref}".`, 'error');
+        return print(`Deleted ${c.bold(target.name || target.id)} ${c.dim(`(${target.messageCount} messages)`)}.`, 'dim');
+      }
       const list = Session.list(runtime.cwd);
       if (!list.length) return print('No saved sessions for this project yet.', 'dim');
       const lines = list.slice(0, 30).map((m, i) => {
@@ -272,7 +287,7 @@ const commands: Command[] = [
         const fork = m.forkedFrom ? c.dim(' (fork)') : '';
         return `${String(i + 1).padStart(3)}. ${title}${fork}${current}\n     ${c.dim(`${m.id} · ${m.messageCount} messages · ${relTime(m.updatedAt)}`)}`;
       });
-      print(`${lines.join('\n')}\n${c.dim('Resume with /resume <number|id|name>')}`);
+      print(`${lines.join('\n')}\n${c.dim('Resume with /resume <number|id|name> · delete with /sessions delete <ref> · prune with /sessions cleanup')}`);
     },
   },
   {

@@ -33,6 +33,7 @@ ${c.bold('Environment')}
   OPENAI_API_KEY    / OPENAI_BASE_URL        for --provider openai
   CODER_PROVIDER, CODER_MODEL, CODER_API_KEY, CODER_BASE_URL, CODER_MAX_TOKENS, CODER_CONTEXT_LIMIT
   CODER_TOOL_RESULT_LIMIT                     tool results larger than this (chars) are saved to disk (default 20000)
+  CODER_SESSION_TTL_DAYS                      delete sessions untouched for this many days (default 30, 0 disables)
   CODER_WEB_SEARCH, TAVILY_API_KEY, BRAVE_API_KEY   web search provider (default: auto, falls back to Bing)
   CODER_SHELL                                 shell used by the Bash tool (default: PowerShell on Windows, bash elsewhere)
   Config file: ~/.coder/config.json   MCP servers: "mcpServers" in config.json or <project>/.mcp.json
@@ -63,6 +64,11 @@ async function main(): Promise<void> {
   if (values.version) return void console.log(VERSION);
 
   const cwd = process.cwd();
+  try {
+    Session.cleanup();
+  } catch {
+    /* 清理失败不影响启动 */
+  }
   const config = loadConfig({ provider: values.provider, model: values.model });
   const mode: PermissionMode = values.yolo ? 'yolo' : values['accept-edits'] ? 'acceptEdits' : 'default';
 
